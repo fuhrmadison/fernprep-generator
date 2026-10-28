@@ -1,0 +1,8 @@
+{
+  "name": "@fernprep/generator",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "generator.ts",
+  "types": "generator.ts",
+  "exports": { ".": "./generator.ts" }
+}
