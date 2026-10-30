@@ -20,14 +20,22 @@ export type TemplateVariable = {
 
 export type TemplateData = {
   id: string;
+  // The instruction sentence ("Simplify each expression."), kept apart from the math in `text`.
+  // Filled like `text`, so it may use [variables] and array entries such as [verb.1].
+  // Templates saved before this field existed keep everything in `text`.
+  instruction?: string | null;
   text: string;
   choices: { label: string; text: string }[];
   correct_label: string;
   solution: string | null;
   variables: TemplateVariable[];
+  // Shown once above all problems from this template when they are grouped on a worksheet.
+  // Plain text: each grouped problem has different values, so [variables] are not filled in.
+  group_instructions?: string | null;
 };
 
 export type GeneratedQuestion = {
+  instruction: string | null;
   text: string;
   choices: { label: string; text: string }[];
   correctLabel: string;
@@ -673,6 +681,7 @@ export function generateQuestion(t: TemplateData): GeneratedQuestion {
       }
     }
     return {
+      instruction: t.instruction ? fill(t.instruction, shown, arrays) : null,
       text: fill(t.text, shown, arrays),
       choices,
       correctLabel: t.correct_label,
@@ -681,4 +690,31 @@ export function generateQuestion(t: TemplateData): GeneratedQuestion {
     };
   }
   throw new Error(lastProblem || "Could not generate a valid question.");
+}
+
+export type GroupOptions = {
+  /** Show the template's group instructions above the problems. */
+  useGroupInstructions: boolean;
+  /** Drop each problem's own instruction (only applies when group instructions are used). The math stays. */
+  hidePromptText: boolean;
+};
+
+export type GeneratedGroup = {
+  /** The template's group instructions, or null when not used or the template has none. */
+  instructions: string | null;
+  questions: GeneratedQuestion[];
+};
+
+/**
+ * Generates several problems from one template for a worksheet. Individually generated problems
+ * should keep using generateQuestion, which ignores group instructions.
+ */
+export function generateGroup(t: TemplateData, count: number, options: GroupOptions): GeneratedGroup {
+  const instructions = options.useGroupInstructions ? t.group_instructions?.trim() || null : null;
+  const hide = instructions !== null && options.hidePromptText;
+  const questions = Array.from({ length: count }, () => {
+    const q = generateQuestion(t);
+    return hide ? { ...q, instruction: null } : q;
+  });
+  return { instructions, questions };
 }
